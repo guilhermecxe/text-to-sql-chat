@@ -9,10 +9,19 @@ import os
 from api.src.routes.agents import router as agents_router
 from api.src.agents.sql_agent import create_sql_agent
 from api.src.agents.conversational_agent import create_conversational_agent
+from api.src.services.redis_service import RedisService
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+MODE = os.getenv("MODE")
+logging.basicConfig(
+    level=(logging.DEBUG if MODE == "dev" else logging.INFO),
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("stainless").setLevel(logging.WARNING)
 
 app = FastAPI(
     title="SQL Agent API",
@@ -63,6 +72,9 @@ async def startup():
         checkpointer=checkpointer,
         debug=debug
     )
+
+    app.state.redis_service = RedisService()
+
 
 @app.get("/")
 async def root():
