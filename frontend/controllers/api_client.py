@@ -1,4 +1,5 @@
 import requests
+import logging
 import os
 
 class APIClient:
@@ -9,7 +10,7 @@ class APIClient:
         self.base_url = os.getenv("API_BASE_URL")
         self.api_key = os.getenv("API_KEY")
 
-    def ask_conversational_agent(self, user_prompt: str, thread_id: str):
+    def ask_conversational_agent(self, user_prompt: str, thread_id: str, model: str = None):
         """
         Sends a user prompt to the conversational agent and retrieves the response.
 
@@ -20,14 +21,19 @@ class APIClient:
         Returns:
             dict: The JSON response from the API, containing the updated thread information.
         """
-        
+
         headers = {
             "X-API-KEY": self.api_key
         }
-        data = {"user_prompt": user_prompt, "thread_id": thread_id}
+        data = {
+            "user_prompt": user_prompt,
+            "thread_id": thread_id
+            # "model": model # TODO: implement dynamic model selection
+        }
         response = requests.post(
             url=f"{self.base_url}/agents/ask-conversational-agent",
             headers=headers,
             json=data
         )
+        logging.debug(f"Response: {response.json()}")
         return response.json()

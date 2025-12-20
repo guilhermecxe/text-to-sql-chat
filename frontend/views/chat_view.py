@@ -4,7 +4,7 @@ import logging
 from controllers.api_client import APIClient
 from controllers.redis_client import RedisClient
 
-PROGRESS_BAR_WIDTH = 350
+PROGRESS_BAR_WIDTH = "stretch"
 
 
 if not st.session_state.get("api_client"):
@@ -14,6 +14,14 @@ if not st.session_state.get("api_client"):
 if not st.session_state.get("thread"):
     st.session_state.thread = []
 
+# TODO: implement dynamic model selection
+# settings_container = st.container()
+# st.session_state["model"] = settings_container.selectbox(
+#     label="Model",
+#     options=["google_genai:gemini-2.5-flash-lite", "openai:gpt-5-nano"],
+#     index=0,
+#     width=300,
+# )
 
 # Initial chat message
 with st.chat_message("ai"):
@@ -54,7 +62,8 @@ if prompt := st.chat_input("Say something"):
     progress_bar = st.progress(0, text="Thinking...", width=PROGRESS_BAR_WIDTH)
     response = api_client.ask_conversational_agent(
         user_prompt=prompt,
-        thread_id=st.session_state.get("thread_id")
+        thread_id=st.session_state.get("thread_id"),
+        # model=st.session_state.get("model"), # TODO: implement dynamic model
     )
 
     # Saving the thread_id to future reference of the same chat

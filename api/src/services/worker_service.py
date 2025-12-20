@@ -25,7 +25,7 @@ class WorkerService:
             if "BUSYGROUP" not in str(e):
                 raise
 
-    async def _process_job(self, job_id: str, payload: dict):
+    async def _process_job(self, job_id: str, payload: dict, debug: bool = False):
         agent_name = payload["agent_name"]
         thread_id = payload["thread_id"]
         user_prompt = payload["user_prompt"]
@@ -34,7 +34,8 @@ class WorkerService:
             job_id=job_id,
             agent_name=agent_name,
             thread_id=thread_id,
-            user_prompt=user_prompt
+            user_prompt=user_prompt,
+            debug=debug
         )
 
     async def loop(self):
@@ -57,7 +58,8 @@ class WorkerService:
                 for message_id, data in messages:
                     job_id = data["job_id"]
                     payload = json.loads(data["payload"])
+                    debug = payload.get("debug", "false") == "true"
 
-                    await self._process_job(job_id, payload)
+                    await self._process_job(job_id, payload, debug=debug)
 
                     self._redis.xack(self._STREAM, self._GROUP, message_id)

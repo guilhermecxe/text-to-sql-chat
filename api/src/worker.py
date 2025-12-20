@@ -24,6 +24,8 @@ logging.getLogger("stainless").setLevel(logging.WARNING)
 
 
 async def main():
+    debug = os.getenv("DEBUG_MODE", "false") == "true"
+
     redis = Redis(
         host=os.getenv("REDIS_HOST", "redis"),
         port=os.getenv("REDIS_PORT", 6379),
@@ -31,20 +33,23 @@ async def main():
     )
 
     sql_agent = create_sql_agent(
-        model="openai:gpt-5-nano",
-        db_uri="sqlite:///api/data/Chinook.db"
+        model=os.getenv("SQL_AGENT_MODEL"),
+        db_uri="sqlite:///api/data/Chinook.db",
+        debug=debug,
     )
     sql_agent_tool = create_sql_agent(
-        model="openai:gpt-5-nano",
+        model=os.getenv("SQL_AGENT_MODEL"),
         db_uri="sqlite:///api/data/Chinook.db",
         as_tool=True,
+        debug=debug,
     )
 
     checkpointer = InMemorySaver()
     conversational_agent = create_conversational_agent(
-        model="openai:gpt-5-nano",
+        model=os.getenv("DEFAULT_CONVERSATIONAL_AGENT_MODEL"),
         tools=[sql_agent_tool],
         checkpointer=checkpointer,
+        debug=debug
     )
 
     agent_executor = AgentExecutorService(

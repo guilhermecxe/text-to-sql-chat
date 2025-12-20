@@ -51,28 +51,6 @@ app.include_router(agents_router, prefix="/api/agents", dependencies=[Depends(va
 
 @app.on_event("startup")
 async def startup():
-    debug = os.getenv("DEBUG_MODE", "false") == "true"
-
-    app.state.sql_agent = create_sql_agent(
-        model="openai:gpt-5-nano",
-        db_uri="sqlite:///api/data/Chinook.db",
-        debug=debug,
-    )
-
-    sql_agent_tool = create_sql_agent(
-        model="openai:gpt-5-nano",
-        db_uri="sqlite:///api/data/Chinook.db",
-        as_tool=True,
-        debug=debug,
-    )
-    checkpointer = InMemorySaver()
-    app.state.conversational_agent = create_conversational_agent(
-        model="openai:gpt-5-nano",
-        tools=[sql_agent_tool],
-        checkpointer=checkpointer,
-        debug=debug
-    )
-
     app.state.redis_service = RedisService()
 
 

@@ -4,8 +4,9 @@ from typing import Optional
 from uuid import uuid4
 import traceback
 import logging
+import os
 
-from api.src.di import get_sql_agent, get_conversational_agent, get_redis_service
+from api.src.di import get_sql_agent, get_redis_service
 from api.src.services.redis_service import RedisService
 
 router = APIRouter()
@@ -14,6 +15,7 @@ router = APIRouter()
 class AskConversationalAgentPayload(BaseModel):
     user_prompt: str
     thread_id: Optional[str | None] = None
+    # model: Optional[str | None] = None # TODO: implement dynamic model selection
 
 @router.post("/ask-sql-agent")
 async def ask_sql_agent(
@@ -41,7 +43,9 @@ async def ask_conversational_agent(
         await redis.create_job(
             agent_name="conversational_agent",
             user_prompt=payload.user_prompt,
-            thread_id=thread_id
+            thread_id=thread_id,
+            debug=os.getenv("DEBUG_MODE", "false") == "true"
+            # model=payload.model # TODO: implement dynamic model selection
         )
 
         return {"thread_id": thread_id}

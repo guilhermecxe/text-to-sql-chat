@@ -5,6 +5,9 @@ from langchain.messages import SystemMessage, RemoveMessage
 from langgraph.runtime import Runtime
 from langgraph.graph.message import REMOVE_ALL_MESSAGES
 
+from api.src.agents.prompts.conversational_agent import system_prompt
+
+
 @before_model
 def trim_messages(state: AgentState, runtime: Runtime):
     """Keep only the last 20 messages to fit context window."""
@@ -29,6 +32,7 @@ def create_conversational_agent(model: str, tools: list, checkpointer=None, debu
     llm = init_chat_model(model)
     agent = create_agent(
         model=llm,
+        system_prompt=system_prompt,
         tools=tools,
         checkpointer=checkpointer,
         middleware=[trim_messages],

@@ -11,14 +11,15 @@ class RedisService:
             decode_responses=True,
         )
 
-    async def create_job(self, agent_name: str, user_prompt: str, thread_id: str):
+    async def create_job(self, agent_name: str, user_prompt: str, thread_id: str, debug: bool = False):
         await self._r.xadd(
             "jobs:queue", {
                 "job_id": thread_id,
                 "payload": json.dumps({
                     "agent_name": agent_name,
                     "thread_id": thread_id,
-                    "user_prompt": user_prompt
+                    "user_prompt": user_prompt,
+                    "debug": "true" if debug else "false"
                 })
             }
         )
