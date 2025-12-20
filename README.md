@@ -1,16 +1,16 @@
 ## Execução
 
-Para iniciar a API:
+1. To start the API:
 ```shell
 uvicorn api.src.main:app
 ```
 
-Para iniciar o Worker responsável por processar as mensagens
-```
+2. To start the worker responsible for processing messages:
+```shell
 python -m api.src.worker
 ```
 
-Para iniciar o frontend:
-```
+3. To start the frontend
+```shell
 streamlit run frontend/main.py
 ```
