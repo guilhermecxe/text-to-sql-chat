@@ -14,6 +14,19 @@ if not st.session_state.get("api_client"):
 if not st.session_state.get("thread"):
     st.session_state.thread = []
 
+st.markdown(
+    """
+    <style>
+    .stProgress {
+        background-color: #e0e4ff;
+        padding: 15px;
+        border-radius: 10px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # TODO: implement dynamic model selection
 # settings_container = st.container()
 # st.session_state["model"] = settings_container.selectbox(

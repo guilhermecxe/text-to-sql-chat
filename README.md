@@ -14,3 +14,7 @@ python -m api.src.worker
 ```shell
 streamlit run frontend/main.py
 ```
+
+## TODOs:
+
+[] Implement `api` and `frontend` as containers.
