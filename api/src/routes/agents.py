@@ -6,8 +6,8 @@ import traceback
 import logging
 import os
 
-from api.src.di import get_sql_agent, get_redis_service
-from api.src.services.redis_service import RedisService
+from src.di import get_sql_agent, get_redis_service
+from src.services.redis_service import RedisService
 
 router = APIRouter()
 

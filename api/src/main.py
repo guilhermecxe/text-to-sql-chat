@@ -2,17 +2,23 @@ from langgraph.checkpoint.memory import InMemorySaver
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 from fastapi import FastAPI, HTTPException, Depends, status
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+from redis.asyncio import Redis
+import asyncio
 import logging
 import os
 
-from api.src.routes.agents import router as agents_router
-from api.src.agents.sql_agent import create_sql_agent
-from api.src.agents.conversational_agent import create_conversational_agent
-from api.src.services.redis_service import RedisService
+from src.routes.agents import router as agents_router
+from src.agents.sql_agent import create_sql_agent
+from src.agents.conversational_agent import create_conversational_agent
+from src.services.redis_service import RedisService
+from src.services.worker_service import WorkerService
+from src.services.agent_executor_service import AgentExecutorService
 
 load_dotenv()
 
+DEBUG = os.getenv("DEBUG") == "dev"
 MODE = os.getenv("MODE")
 logging.basicConfig(
     level=(logging.DEBUG if MODE == "dev" else logging.INFO),
@@ -23,8 +29,62 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("openai").setLevel(logging.WARNING)
 logging.getLogger("stainless").setLevel(logging.WARNING)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.redis_service = RedisService()
+    app.state.redis_client = Redis(
+        host=os.getenv("REDIS_HOST", "redis"),
+        port=os.getenv("REDIS_PORT", 6379),
+        decode_responses=True,
+    )
+
+    # Para salvar a memória dos agentes
+    checkpointer = InMemorySaver()
+
+    # Criação dos agentes
+    sql_agent = create_sql_agent(
+        model=os.getenv("SQL_AGENT_MODEL"),
+        db_uri="sqlite:///data/Chinook.db",
+        debug=DEBUG,
+    )
+    sql_agent_tool = create_sql_agent(
+        model=os.getenv("SQL_AGENT_MODEL"),
+        db_uri="sqlite:///data/Chinook.db",
+        as_tool=True,
+        debug=DEBUG,
+    )
+    conversational_agent = create_conversational_agent(
+        model=os.getenv("DEFAULT_CONVERSATIONAL_AGENT_MODEL"),
+        tools=[sql_agent_tool],
+        checkpointer=checkpointer,
+        debug=DEBUG
+    )
+
+    # Serviços
+    app.state.agent_executor_service = AgentExecutorService(
+        redis=app.state.redis_client,
+        agents={
+            "conversational_agent": conversational_agent,
+            "sql_agent": sql_agent
+        }
+    )
+    app.state.worker_service = WorkerService(
+        redis=app.state.redis_client,
+        agent_executor=app.state.agent_executor_service
+    )
+
+    # Iniciando a thread responsável por processar as requisições
+    worker_task = asyncio.create_task(
+        app.state.worker_service.loop()
+    )
+    
+    yield
+
+    worker_task.cancel()
+
 app = FastAPI(
     title="SQL Agent API",
+    lifespan=lifespan,
 )
 
 # Configuração CORS
@@ -48,10 +108,6 @@ async def validate_api_key(api_key: str = Depends(api_key_header)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
 
 app.include_router(agents_router, prefix="/api/agents", dependencies=[Depends(validate_api_key)])
-
-@app.on_event("startup")
-async def startup():
-    app.state.redis_service = RedisService()
 
 
 @app.get("/")

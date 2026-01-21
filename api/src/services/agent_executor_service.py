@@ -15,24 +15,24 @@ class AgentExecutorService:
         self._usage = self._get_usage()
 
     def _get_usage(self):
-        if not os.path.exists("api/data/usage.json"):
+        if not os.path.exists("data/usage.json"):
             return {}
 
-        with open("api/data/usage.json", "r") as f:
+        with open("data/usage.json", "r") as f:
             return json.load(f)
         
     def _save_usage(self):
-        with open("api/data/usage.json", "w") as f:
+        with open("data/usage.json", "w") as f:
             json.dump(self._usage, f)
         
-    def _publish_progress(self, job_id: str, step: str, progress: float, message: str = "", result: dict = {}):
+    async def _publish_progress(self, job_id: str, step: str, progress: float, message: str = "", result: dict = {}):
         progress = {
             "step": step,
             "progress": progress,
             "message": message,
             "result": json.dumps(result)
         }
-        self._redis.xadd(f"jobs:progress:{job_id}", progress)
+        await self._redis.xadd(f"jobs:progress:{job_id}", progress)
         logging.debug(f"Progress: {progress}")
     
     async def execute(self, job_id: str, agent_name: str, thread_id: str, user_prompt: str, debug: bool = False):
@@ -43,7 +43,7 @@ class AgentExecutorService:
         if today not in self._usage.keys():
             self._usage[today] = 0
         if self._usage[today] >= self._limit_of_calls_per_day:
-            self._publish_progress(
+            await self._publish_progress(
                 job_id=job_id, step="",
                 progress=1.0,
                 message="",
@@ -84,7 +84,7 @@ class AgentExecutorService:
 
                 message = "Thinking..." if steps < estimated_steps else "Sorry, it is taking longer than expected. Please wait."
 
-                self._publish_progress(
+                await self._publish_progress(
                     job_id=job_id,
                     step=step_str,
                     progress=min(steps/estimated_steps, 0.95),
@@ -93,7 +93,7 @@ class AgentExecutorService:
                 steps += 1
 
             answer = step[1]["model"]["messages"][0].content
-            self._publish_progress(job_id=job_id, step=steps, progress=1.0, message="Result", result={"answer": answer})
+            await self._publish_progress(job_id=job_id, step=steps, progress=1.0, message="Result", result={"answer": answer})
         except Exception as e:
             raise e
         finally:

@@ -5,7 +5,7 @@ from langchain.messages import SystemMessage, RemoveMessage
 from langgraph.runtime import Runtime
 from langgraph.graph.message import REMOVE_ALL_MESSAGES
 
-from api.src.agents.prompts.conversational_agent import system_prompt
+from src.agents.prompts.conversational_agent import system_prompt
 
 
 @before_model

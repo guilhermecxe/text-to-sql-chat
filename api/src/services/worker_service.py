@@ -1,16 +1,16 @@
-from redis import Redis
+from redis.asyncio import Redis
 from redis.exceptions import ResponseError
 import logging
 import json
 
-from api.src.services.agent_executor_service import AgentExecutorService
+from src.services.agent_executor_service import AgentExecutorService
 
 class WorkerService:
     """
     Worker resposible for consuming the queue of pendent jobs and call the
     agent executor to run it.
     """
-    def __init__(self, redis:Redis, agent_executor: AgentExecutorService):
+    def __init__(self, redis: Redis, agent_executor: AgentExecutorService):
         self._redis = redis
         self._agent_executor = agent_executor
         
@@ -18,8 +18,9 @@ class WorkerService:
         self._STREAM = "jobs:queue"
         self._WORKER_NAME = "worker-1"
 
+    async def _create_group(self):
         try:
-            self._redis.xgroup_create(self._STREAM, self._GROUP, id="0", mkstream=True)
+            await self._redis.xgroup_create(self._STREAM, self._GROUP, id="0", mkstream=True)
         except ResponseError as e:
             # BUSYGROUP = group already exists
             if "BUSYGROUP" not in str(e):
@@ -39,8 +40,10 @@ class WorkerService:
         )
 
     async def loop(self):
+        await self._create_group()
+
         while True:
-            entries = self._redis.xreadgroup(
+            entries = await self._redis.xreadgroup(
                 groupname=self._GROUP,
                 consumername=self._WORKER_NAME,
                 streams={self._STREAM: ">"}, # apenas mensagens novas
@@ -62,4 +65,4 @@ class WorkerService:
 
                     await self._process_job(job_id, payload, debug=debug)
 
-                    self._redis.xack(self._STREAM, self._GROUP, message_id)
+                    await self._redis.xack(self._STREAM, self._GROUP, message_id)

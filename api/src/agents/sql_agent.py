@@ -4,7 +4,7 @@ from langchain.chat_models import init_chat_model
 from langchain.agents import create_agent
 from langchain.tools import tool
 
-from api.src.agents.prompts.sql_agent import system_prompt
+from src.agents.prompts.sql_agent import system_prompt
 
 def create_sql_agent(model: str, db_uri: str, debug: bool = False, as_tool=False):
 	@tool

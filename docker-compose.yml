@@ -15,6 +15,36 @@ services:
       - app-network
     restart: unless-stopped
 
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      network: host
+    container_name: api
+    env_file: api/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app
+    networks:
+      - app-network
+  
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      network: host
+    container_name: frontend
+    env_file: frontend/.env
+    depends_on:
+      - api
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./frontend:/app
+    networks:
+      - app-network
+
 volumes:
   redis_data:
 

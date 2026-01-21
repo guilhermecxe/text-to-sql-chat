@@ -1,20 +1,14 @@
-## Execução
+## Execution
 
-1. To start the API:
+Para executar a aplicação:
 ```shell
-uvicorn api.src.main:app
-```
-
-2. To start the worker responsible for processing messages:
-```shell
-python -m api.src.worker
-```
-
-3. To start the frontend
-```shell
-streamlit run frontend/main.py
+docker-compose up
 ```
 
 ## TODOs:
 
-[] Implement `api` and `frontend` as containers.
+- ✅ Implement `api` and `frontend` as containers.
+- ❌ Remover `api.src.worker.py`
+- ❌ Implement LLM monitoring with Langfuse
+- ❌ Add description about setting the environment.
+- ✅ Use async redis
