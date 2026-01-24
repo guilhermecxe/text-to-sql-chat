@@ -6,6 +6,7 @@ from controllers.redis_client import RedisClient
 
 PROGRESS_BAR_WIDTH = "stretch"
 
+st.title("Conversational Agent with a Database Access")
 
 if not st.session_state.get("api_client"):
     st.session_state["api_client"] = APIClient()
@@ -18,7 +19,8 @@ st.markdown(
     """
     <style>
     .stProgress {
-        background-color: #e0e4ff;
+        color: white;
+        background-color: rgb(255, 75, 75);
         padding: 15px;
         border-radius: 10px;
     }
@@ -27,27 +29,18 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# TODO: implement dynamic model selection
-# settings_container = st.container()
-# st.session_state["model"] = settings_container.selectbox(
-#     label="Model",
-#     options=["google_genai:gemini-2.5-flash-lite", "openai:gpt-5-nano"],
-#     index=0,
-#     width=300,
-# )
-
 # Initial chat message
 with st.chat_message("ai"):
     st.markdown("""
-**Hello!** I am a conversational assistant. I can chat like a modern, standard chat interface and  
-I also have access to an **SQL Agent** that interacts with the **Chinook** database (a music store database).  
+**Hi!** I am a conversational assistant. I can chat like a modern, standard chat interface and  
+I also have access to a **SQL Agent** that interacts with the **Chinook** database (a music store database).  
 I can execute SQL queries on Chinook and explain the results in plain language.
 
 **Suggested questions:**
 - "Who are the top 10 artists with the most tracks?"
 - "How many sales did we have per country?"
 - "What are the most popular genres?"
-- "Show the tracks from the album 'Let It Be' or from the artist 'The Beatles'."
+- "Show the tracks from the album 'Acústico MTV' from the band 'Os Paralamas do Sucesso'."
 - "What was the revenue per year?"
 
 :)
@@ -72,36 +65,40 @@ if prompt := st.chat_input("Say something"):
     redis_client = st.session_state.get("redis_client")
 
     # Sending the user input to the backend
-    progress_bar = st.progress(0, text="Thinking...", width=PROGRESS_BAR_WIDTH)
     response = api_client.ask_conversational_agent(
         user_prompt=prompt,
         thread_id=st.session_state.get("thread_id"),
         # model=st.session_state.get("model"), # TODO: implement dynamic model
     )
 
-    # Saving the thread_id to future reference of the same chat
-    st.session_state["thread_id"] = response["thread_id"]
+    if response.get("success"):
+        progress_bar = st.progress(0, text="Thinking...", width=PROGRESS_BAR_WIDTH)
 
-    # Monitoring the task progress
-    while True:
-        progress, last_id = redis_client.check_progress(
-            job_id=st.session_state.get("thread_id"),
-            last_id=st.session_state.get("last_id", "0-0")
-        )
-        st.session_state["last_id"] = last_id
+        # Saving the thread_id to future reference of the same chat
+        st.session_state["thread_id"] = response["thread_id"]
 
-        logging.debug(f"Progress: {progress}")
-        if progress:
-            progress_bar.progress(
-                value=progress["progress"],
-                text=f"{progress['step']}\n\n{progress['message']}",
-                width=PROGRESS_BAR_WIDTH
+        # Monitoring the task progress
+        while True:
+            progress, last_id = redis_client.check_progress(
+                job_id=st.session_state.get("thread_id"),
+                last_id=st.session_state.get("last_id", "0-0")
             )
-            if progress["result"]:
-                answer = progress["result"]["answer"]
-                progress_bar.empty()
-                break
-            continue
+            st.session_state["last_id"] = last_id
+
+            logging.debug(f"Progress: {progress}")
+            if progress:
+                progress_bar.progress(
+                    value=progress["progress"],
+                    text=f"{progress['step']}\n\n{progress['message']}",
+                    width=PROGRESS_BAR_WIDTH
+                )
+                if progress["result"]:
+                    answer = progress["result"]["answer"]
+                    progress_bar.empty()
+                    break
+                continue
+    else:
+        answer = "Sorry, we had a problem trying to communicate with the other side of the application :/"
     
     # Displaying the AI answer
     with st.chat_message("ai"):

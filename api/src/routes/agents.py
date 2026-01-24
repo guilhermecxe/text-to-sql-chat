@@ -15,7 +15,6 @@ router = APIRouter()
 class AskConversationalAgentPayload(BaseModel):
     user_prompt: str
     thread_id: Optional[str | None] = None
-    # model: Optional[str | None] = None # TODO: implement dynamic model selection
 
 @router.post("/ask-sql-agent")
 async def ask_sql_agent(
@@ -45,7 +44,6 @@ async def ask_conversational_agent(
             user_prompt=payload.user_prompt,
             thread_id=thread_id,
             debug=os.getenv("DEBUG_MODE", "false") == "true"
-            # model=payload.model # TODO: implement dynamic model selection
         )
 
         return {"thread_id": thread_id}

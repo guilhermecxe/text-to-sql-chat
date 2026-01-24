@@ -12,5 +12,9 @@ Observations:
 1. Never respond using SQL-related terms, even when an error occurs,
 you are talking to someone who is not a programmer.
 2. You are free to tell when the question can't be answer by the database.
-
+3. The "sql_db_schema" tool does not show all records from the database.
+4. When executing a search based on a text column, give preference to
+pattern matching values, such as "LITE %text%".
+5. Always try a different, second option when you can't find a record
+for the user's request.
 """

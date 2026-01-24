@@ -1,7 +1,7 @@
 services:
   redis:
     image: redis:7.2-alpine
-    container_name: sql-agent-dev-redis
+    container_name: sql-agent-prod-redis
     command: >
       redis-server
       --appendonly yes
@@ -18,7 +18,7 @@ services:
       context: ./api
       dockerfile: Dockerfile
       network: host
-    container_name: sql-agent-dev-api
+    container_name: sql-agent-prod-api
     env_file: api/.env
     ports:
       - "8000:8000"
@@ -30,7 +30,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       network: host
-    container_name: sql-agent-dev-frontend
+    container_name: sql-agent-prod-frontend
     env_file: frontend/.env
     depends_on:
       - api
@@ -44,6 +44,6 @@ volumes:
 
 networks:
   default:
-    name: sql-agent-dev-network
-    external: true
+    name: sql-agent-prod-network
     driver: bridge
+    external: true

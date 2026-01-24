@@ -3,9 +3,11 @@ import streamlit as st
 import logging
 import os
 
+from views.sidebar_view import show_sidebar
+
 load_dotenv()
 
-# NOTE: Logs control
+# Controle de logs
 MODE = os.getenv("MODE")
 logging.basicConfig(
     level=(logging.DEBUG if MODE == "dev" else logging.INFO),
@@ -14,10 +16,13 @@ logging.basicConfig(
 logging.getLogger("watchdog").setLevel(logging.WARNING)
 
 
-# NOTE: Pages control
+# Controle de páginas
 pages = [
-    st.Page(page="views/chat_view.py", title="Chat")
+    st.Page(page="views/chat_view.py", title="Conversational Agent")
 ]
+
+# Sidebar
+show_sidebar()
 
 pg = st.navigation(pages)
 pg.run()

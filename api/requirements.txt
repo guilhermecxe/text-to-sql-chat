@@ -1,14 +1,19 @@
+# LLM
 langchain-google-genai==4.0.0
 langchain-openai==1.1.3
 langchain-huggingface==1.2.0
 langchain_community==0.4.1
 langchain==1.1.3
-# transformers==4.57.3
-# torch==2.9.1
 
+# Observabilidade
+langfuse==3.12.0
+
+# Ambiente
 python-dotenv==1.2.1
 
+# API
 fastapi==0.115.6
 uvicorn==0.34.0
 
+# Assíncronismo
 redis==7.1.0

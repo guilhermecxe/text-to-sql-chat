@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 from fastapi import FastAPI, HTTPException, Depends, status
 from contextlib import asynccontextmanager
+from langfuse.langchain import CallbackHandler
+from langfuse import get_client
 from dotenv import load_dotenv
 from redis.asyncio import Redis
 import asyncio
@@ -18,6 +20,7 @@ from src.services.agent_executor_service import AgentExecutorService
 
 load_dotenv()
 
+# Controle dos logs
 DEBUG = os.getenv("DEBUG") == "dev"
 MODE = os.getenv("MODE")
 logging.basicConfig(
@@ -29,6 +32,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("openai").setLevel(logging.WARNING)
 logging.getLogger("stainless").setLevel(logging.WARNING)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.redis_service = RedisService()
@@ -38,11 +42,16 @@ async def lifespan(app: FastAPI):
         decode_responses=True,
     )
 
-    # Para salvar a memória dos agentes
+    # Langfuse
+    if os.getenv("LANGFUSE_BASE_URL"):
+        app.state.langfuse_client = get_client()
+        app.state.langfuse_handler = CallbackHandler()
+
+    # Para salvar o histórico das sessões do agente em memória
     checkpointer = InMemorySaver()
 
     # Criação dos agentes
-    sql_agent = create_sql_agent(
+    app.state.sql_agent = create_sql_agent(
         model=os.getenv("SQL_AGENT_MODEL"),
         db_uri="sqlite:///data/Chinook.db",
         debug=DEBUG,
@@ -53,8 +62,9 @@ async def lifespan(app: FastAPI):
         as_tool=True,
         debug=DEBUG,
     )
-    conversational_agent = create_conversational_agent(
+    app.state.conversational_agent = create_conversational_agent(
         model=os.getenv("DEFAULT_CONVERSATIONAL_AGENT_MODEL"),
+        langfuse_handler=app.state.langfuse_handler,
         tools=[sql_agent_tool],
         checkpointer=checkpointer,
         debug=DEBUG
@@ -64,9 +74,11 @@ async def lifespan(app: FastAPI):
     app.state.agent_executor_service = AgentExecutorService(
         redis=app.state.redis_client,
         agents={
-            "conversational_agent": conversational_agent,
-            "sql_agent": sql_agent
-        }
+            "conversational_agent": app.state.conversational_agent,
+            "sql_agent": app.state.sql_agent
+        },
+        langfuse_client=app.state.langfuse_client,
+        langfuse_handler=app.state.langfuse_handler
     )
     app.state.worker_service = WorkerService(
         redis=app.state.redis_client,
@@ -96,6 +108,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Chave de API
 API_KEY = os.getenv("API_KEY", "")
 API_KEY_NAME = "X-API-KEY"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
@@ -107,9 +120,10 @@ async def validate_api_key(api_key: str = Depends(api_key_header)):
     if api_key != API_KEY:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
 
+# Endpoints principais
 app.include_router(agents_router, prefix="/api/agents", dependencies=[Depends(validate_api_key)])
 
-
+# Endpoints auxiliares
 @app.get("/")
 async def root():
     """

@@ -14,3 +14,6 @@ def get_redis_service(request: Request):
 
 def get_redis_client(request: Request):
     return request.app.state.redis_client
+
+def get_langfuse_handler(request: Request):
+    return request.app.state.langfuse_handler
