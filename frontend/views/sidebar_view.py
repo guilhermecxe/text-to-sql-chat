@@ -2,6 +2,9 @@ import streamlit as st
 
 def show_sidebar():
     with st.sidebar:
+        st.toggle("Async Mode", key="async_mode")
+
+        st.divider()
         body = (
             "This is an application developed by **Guilherme Alves**. "
             "You can reach me out at [Github](https://github.com/guilhermecxe) "

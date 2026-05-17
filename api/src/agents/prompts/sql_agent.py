@@ -1,4 +1,4 @@
-system_prompt = """
+SYSTEM_PROMPT = """
 You are an agent designed to interact with a SQL database.
 
 DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the

@@ -1,5 +1,6 @@
 import streamlit as st
 import logging
+import time
 
 from controllers.api_client import APIClient
 from controllers.redis_client import RedisClient
@@ -49,7 +50,10 @@ I can execute SQL queries on Chinook and explain the results in plain language.
 # Keeping the previous chat messages at the chat display
 for message in st.session_state.thread:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        if message["role"] == "ai":
+            st.write(message["content"], unsafe_allow_html=True)
+        else:
+            st.markdown(message["content"])
 
 if prompt := st.chat_input("Say something"):
     # Saving the user input
@@ -61,48 +65,42 @@ if prompt := st.chat_input("Say something"):
         st.markdown(message["content"])
 
     # Helper instances
-    api_client = st.session_state.get("api_client")
+    api_client: APIClient = st.session_state.get("api_client")
     redis_client = st.session_state.get("redis_client")
 
     # Sending the user input to the backend
-    response = api_client.ask_conversational_agent(
-        user_prompt=prompt,
-        thread_id=st.session_state.get("thread_id"),
-        # model=st.session_state.get("model"), # TODO: implement dynamic model
-    )
+    async_mode = st.session_state.get("async_mode")
+    with st.spinner("Processing your message...", width="stretch"):
+        response = api_client.ask_conversational_agent(
+            user_prompt=prompt,
+            thread_id=st.session_state.get("thread_id"),
+            async_mode=async_mode,
+            theme=st.context.theme.get("type", "light"),
+            # model=st.session_state.get("model"), # TODO: implement dynamic model
+        )
 
-    if response.get("success"):
-        progress_bar = st.progress(0, text="Thinking...", width=PROGRESS_BAR_WIDTH)
+        if async_mode:
+            job_id = response["job_id"]
+            result = {}
+            while not result:
+                time.sleep(5)
+                result = api_client.pull_answer(job_id)
 
-        # Saving the thread_id to future reference of the same chat
-        st.session_state["thread_id"] = response["thread_id"]
-
-        # Monitoring the task progress
-        while True:
-            progress, last_id = redis_client.check_progress(
-                job_id=st.session_state.get("thread_id"),
-                last_id=st.session_state.get("last_id", "0-0")
-            )
-            st.session_state["last_id"] = last_id
-
-            logging.debug(f"Progress: {progress}")
-            if progress:
-                progress_bar.progress(
-                    value=progress["progress"],
-                    text=f"{progress['step']}\n\n{progress['message']}",
-                    width=PROGRESS_BAR_WIDTH
-                )
-                if progress["result"]:
-                    answer = progress["result"]["answer"]
-                    progress_bar.empty()
+                if result and result.get("success"):
+                    st.session_state["thread_id"] = result["thread_id"]
+                    answer = result["answer"]
                     break
-                continue
-    else:
-        answer = "Sorry, we had a problem trying to communicate with the other side of the application :/"
+                elif result and not result.get("success"):
+                    answer = "Sorry, we had a problem trying to communicate with the other side of the application :/"
+                    answer = result["answer"]
+                    break
+        else:
+            st.session_state["thread_id"] = response["thread_id"]
+            answer = response["answer"]
     
     # Displaying the AI answer
     with st.chat_message("ai"):
-        st.write(answer)
+        st.write(answer, unsafe_allow_html=True)
 
     # Saving the AI answer
     st.session_state["thread"].append({"role": "ai", "content": answer})

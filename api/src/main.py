@@ -1,22 +1,15 @@
-from langgraph.checkpoint.memory import InMemorySaver
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 from fastapi import FastAPI, HTTPException, Depends, status
 from contextlib import asynccontextmanager
-from langfuse.langchain import CallbackHandler
-from langfuse import get_client
 from dotenv import load_dotenv
-from redis.asyncio import Redis
 import asyncio
 import logging
 import os
 
+from src.di import get_agent_executor_service
 from src.routes.agents import router as agents_router
-from src.agents.sql_agent import create_sql_agent
-from src.agents.conversational_agent import create_conversational_agent
-from src.services.redis_service import RedisService
-from src.services.worker_service import WorkerService
-from src.services.agent_executor_service import AgentExecutorService
+
 
 load_dotenv()
 
@@ -35,64 +28,13 @@ logging.getLogger("stainless").setLevel(logging.WARNING)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.redis_service = RedisService()
-    app.state.redis_client = Redis(
-        host=os.getenv("REDIS_HOST", "redis"),
-        port=os.getenv("REDIS_PORT", 6379),
-        decode_responses=True,
-    )
-
-    # Langfuse
-    if os.getenv("LANGFUSE_BASE_URL"):
-        app.state.langfuse_client = get_client()
-        app.state.langfuse_handler = CallbackHandler()
-
-    # Para salvar o histórico das sessões do agente em memória
-    checkpointer = InMemorySaver()
-
-    # Criação dos agentes
-    app.state.sql_agent = create_sql_agent(
-        model=os.getenv("SQL_AGENT_MODEL"),
-        db_uri="sqlite:///data/Chinook.db",
-        debug=DEBUG,
-    )
-    sql_agent_tool = create_sql_agent(
-        model=os.getenv("SQL_AGENT_MODEL"),
-        db_uri="sqlite:///data/Chinook.db",
-        as_tool=True,
-        debug=DEBUG,
-    )
-    app.state.conversational_agent = create_conversational_agent(
-        model=os.getenv("DEFAULT_CONVERSATIONAL_AGENT_MODEL"),
-        langfuse_handler=app.state.langfuse_handler,
-        tools=[sql_agent_tool],
-        checkpointer=checkpointer,
-        debug=DEBUG
-    )
-
-    # Serviços
-    app.state.agent_executor_service = AgentExecutorService(
-        redis=app.state.redis_client,
-        agents={
-            "conversational_agent": app.state.conversational_agent,
-            "sql_agent": app.state.sql_agent
-        },
-        langfuse_client=app.state.langfuse_client,
-        langfuse_handler=app.state.langfuse_handler
-    )
-    app.state.worker_service = WorkerService(
-        redis=app.state.redis_client,
-        agent_executor=app.state.agent_executor_service
-    )
-
-    # Iniciando a thread responsável por processar as requisições
-    worker_task = asyncio.create_task(
-        app.state.worker_service.loop()
-    )
+    # Iniciando uma thread de execução assíncrona de agentes
+    agent_executor_service = get_agent_executor_service()
+    agent_executor_task = asyncio.create_task(agent_executor_service.run())
     
     yield
 
-    worker_task.cancel()
+    agent_executor_task.cancel()
 
 app = FastAPI(
     title="SQL Agent API",
@@ -121,7 +63,7 @@ async def validate_api_key(api_key: str = Depends(api_key_header)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
 
 # Endpoints principais
-app.include_router(agents_router, prefix="/api/agents", dependencies=[Depends(validate_api_key)])
+app.include_router(agents_router, prefix="/api/agents", tags=["Agents"], dependencies=[Depends(validate_api_key)])
 
 # Endpoints auxiliares
 @app.get("/")

@@ -9,8 +9,8 @@ services:
       --save 60 1000
     volumes:
       - redis_data:/data
-    ports:
-      - "6378:6379"
+    # ports:
+    #   - "6378:6379"
     restart: unless-stopped
 
   api:
@@ -38,6 +38,23 @@ services:
       - "8501:8501"
     volumes:
       - ./frontend:/app
+
+  # Serviço responsável por executar os testes em api/tests
+  api-test:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    env_file:
+      - api/.env
+    volumes:
+      - ./api/tests:/app/tests
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONWARNINGS=ignore::DeprecationWarning
+    command: ["pytest", "tests/", "--cov=/app/src/"]
+    profiles:
+      - test
 
 volumes:
   redis_data:

@@ -28,7 +28,7 @@ prod-network:
 build-dev: dev-network
 	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml up -d --build
 
-build-prod: prod-network
+build-prod: prod-network dev-network
 	docker-compose -p $(LANGFUSE_NAME) -f langfuse/docker-compose.yml up -d --build
 	docker-compose -p $(PROJECT_NAME) -f docker-compose-prod.yml up -d --build
 
@@ -38,6 +38,9 @@ up-dev:
 up-prod:
 	docker-compose -p $(LANGFUSE_NAME) -f langfuse/docker-compose.yml up -d
 	docker-compose -p $(PROJECT_NAME) -f docker-compose-prod.yml up -d
+
+logs-dev-api:
+	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml logs -f api
 
 down-dev:
 	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml down
@@ -52,3 +55,12 @@ reset-dev:
 reset-prod:
 	docker-compose -p $(LANGFUSE_NAME) -f langfuse/docker-compose.yml down -v
 	docker-compose -p $(PROJECT_NAME) -f docker-compose-prod.yml down -v
+
+build-test: dev-network
+	docker-compose -f docker-compose.yml build api-test
+
+test:
+	docker-compose -f docker-compose.yml run --rm api-test
+
+redis-cli-dev:
+	docker exec -it sql-agent-dev-redis redis-cli
