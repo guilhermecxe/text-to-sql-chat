@@ -3,7 +3,7 @@
 A chat app where a conversational agent answers questions in plain language by running SQL queries against a database (**text-to-SQL**), and can **generate charts directly in the chat** to visualize the results.
 
 Watch a demo:
-<video src="https://github.com/guilhermecxe/text-to-sql-chat/raw/main/media/demo.mp4" controls muted playsinline></video>
+<video src="https://github.com/user-attachments/assets/a00041eb-584b-458f-8916-e7c4750833da" controls muted playsinline></video>
 
 ## Main ideas
 
