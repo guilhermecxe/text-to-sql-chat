@@ -18,7 +18,7 @@ logging.getLogger("watchdog").setLevel(logging.WARNING)
 
 # Controle de páginas
 pages = [
-    st.Page(page="views/chat_view.py", title="Conversational Agent")
+    st.Page(page="views/chat_view.py", title="Conversational Agent"),
 ]
 
 # Sidebar

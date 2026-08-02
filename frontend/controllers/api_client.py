@@ -1,7 +1,9 @@
+from ast import literal_eval
 import requests
 import logging
 import os
 import re
+
 
 class APIClient:
     """
@@ -22,6 +24,10 @@ class APIClient:
         
         svg = re.sub(r'width="[\d.]+"', f'width="{new_w}"', svg, count=1)
         svg = re.sub(r'height="[\d.]+"', f'height="{new_h}"', svg, count=1)
+
+        # Streamlit's markdown renderer treats "$...$" as LaTeX, which corrupts
+        # SVGs that contain literal dollar signs (e.g. currency-formatted labels).
+        svg = svg.replace("$", "&#36;")
         return svg
 
     def _place_charts(self, answer: str, charts: dict[str, str]) -> str:
@@ -48,19 +54,31 @@ class APIClient:
 
             response_json = response.json()
 
-            result = {}
-            result["thread_id"] = response_json["thread_id"]
+            result = {"success": True}
+            result["thread_id"] = response_json.get("thread_id")
+            result["answer"] = response_json.get("answer")
             result["answer"] = self._place_charts(response_json["answer"], response_json["charts"])
-            result["success"] = True
+
             return result
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 return None
             logging.exception(f"Error for job_id={job_id}")
-            return {"success": False}
+
+            result = {"success": False}
+
+            error_detail = literal_eval(e.response.text).get('detail', 'Sorry, we had an unknown error :/')
+            if "Daily usage limit reached" in error_detail:
+                result["error"] = "Sorry, we have reached our daily usage limit :/"
+            else:
+                result["error"] = error_detail
+
+            return result
         except requests.exceptions.ConnectionError:
             logging.exception(f"Error for job_id={job_id}")
-            return {"success": False}
+            return {
+                "success": False
+            }
 
     def ask_conversational_agent(
             self, user_prompt: str, thread_id: str | None, async_mode: bool,
@@ -97,10 +115,20 @@ class APIClient:
         except requests.exceptions.ConnectionError:
             logging.exception(f"Error for thread_id={thread_id}, user_prompt={user_prompt}")
             result = {"success": False}
+        except requests.exceptions.HTTPError as e:
+            logging.exception(f"Error for thread_id={thread_id}, user_prompt={user_prompt}")
+
+            result = {"success": False}
+            error_detail = literal_eval(e.response.text).get('detail', 'Sorry, we had an unknown error :/')
+            if "Daily usage limit reached" in error_detail:
+                result["error"] = "Sorry, we have reached our daily usage limit :/"
+            else:
+                result["error"] = error_detail
+
         else:
             response_json = response.json()
             if response_json:
-                result = {"sucess": True}
+                result = {"success": True}
 
                 if "job_id" in response_json:
                     result["job_id"] = response_json["job_id"]

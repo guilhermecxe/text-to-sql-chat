@@ -7,7 +7,7 @@ from controllers.redis_client import RedisClient
 
 PROGRESS_BAR_WIDTH = "stretch"
 
-st.title("Conversational Agent with a Database Access")
+st.title("Conversational Agent")
 
 if not st.session_state.get("api_client"):
     st.session_state["api_client"] = APIClient()
@@ -34,17 +34,17 @@ st.markdown(
 with st.chat_message("ai"):
     st.markdown("""
 **Hi!** I am a conversational assistant. I can chat like a modern, standard chat interface and  
-I also have access to a **SQL Agent** that interacts with the **Chinook** database (a music store database).  
-I can execute SQL queries on Chinook and explain the results in plain language.
+I also have access to a **SQL Agent** that interacts with the **Chinook** database (a music store database). 
+
+Besides that, I can generate charts! So ask me anything about this database and I will answer in plain text
+or with a chart, just say how you want it.
 
 **Suggested questions:**
 - "Who are the top 10 artists with the most tracks?"
-- "How many sales did we have per country?"
+- "Draw a chart of the sales per the top 10 countries"
 - "What are the most popular genres?"
 - "Show the tracks from the album 'Acústico MTV' from the band 'Os Paralamas do Sucesso'."
-- "What was the revenue per year?"
-
-:)
+- "Draw a line chart with the revenue per year"
 """)
 
 # Keeping the previous chat messages at the chat display
@@ -91,12 +91,14 @@ if prompt := st.chat_input("Say something"):
                     answer = result["answer"]
                     break
                 elif result and not result.get("success"):
-                    answer = "Sorry, we had a problem trying to communicate with the other side of the application :/"
-                    answer = result["answer"]
+                    answer = result.get("error", "Sorry, we had a problem trying to communicate with the other side of the application :/")
                     break
         else:
-            st.session_state["thread_id"] = response["thread_id"]
-            answer = response["answer"]
+            if not response.get("success"):
+                answer = response.get("error", "Unknown error")
+            else:
+                st.session_state["thread_id"] = response["thread_id"]
+                answer = response["answer"]
     
     # Displaying the AI answer
     with st.chat_message("ai"):

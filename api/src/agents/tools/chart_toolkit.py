@@ -52,8 +52,18 @@ class ChartToolkit:
                 armazenado no ChartService.
 
         Raises:
-            RuntimeError: Se a geração do gráfico falhar por qualquer motivo.
+            RuntimeError: Se a geração do gráfico falhar por qualquer motivo, incluindo
+                quando o total de categorias (somando todas as séries) exceder 10.
         """
+        total_categories = sum(len(s.x) for s in data.series)
+        if total_categories > 10:
+            return (
+                f"Erro ao gerar gráfico de barras: o total de categorias somando "
+                f"todas as séries é {total_categories}, mas um gráfico de barras "
+                "suporta no máximo 10 categorias no total. Agregue ou filtre os "
+                "dados (por exemplo, mantendo apenas o top 10) antes de tentar novamente."
+            )
+
         try:
             theme = self._chart_theme.get()
             chart_dict = self._chart_service.draw_bar_chart(data, theme=theme)

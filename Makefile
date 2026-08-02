@@ -1,66 +1,47 @@
-PROJECT_NAME  = sql-agent-dev-app
-LANGFUSE_NAME = sql-agent-prod-langfuse
-DEV_NETWORK_NAME  = sql-agent-dev-network
-PROD_NETWORK_NAME  = sql-agent-prod-network
+PROJECT_NAME = sql-agent-dev-app
+NETWORK_NAME = sql-agent-dev-network
 
-.PHONY: help dev-network prod-network build-dev build-prod \
-		up-dev up-prod down-dev down-prod reset-dev reset-prod
+.PHONY: help network build up build-up down reset logs-api logs-frontend test redis-cli
 
 help:
 	@echo "Targets disponíveis:"
-	@echo "  make build-dev    - Build + up (dev)"
-	@echo "  make build-prod   - Build + up (prod)"
-	@echo "  make up-dev       - Sobe serviços (dev)"
-	@echo "  make up-prod      - Sobe serviços (prod)"
-	@echo "  make down-dev     - Derruba serviços (dev)"
-	@echo "  make down-prod    - Derruba serviços (prod)"
-	@echo "  make reset-dev    - Down + remove volumes (dev)"
-	@echo "  make reset-prod   - Down + remove volumes (prod)"
+	@echo "  make build         - Constrói as imagens"
+	@echo "  make up            - Sobe os serviços"
+	@echo "  make build-up      - Constrói e sobe os serviços"
+	@echo "  make down          - Derruba os serviços"
+	@echo "  make reset         - Down + remove os volumes"
+	@echo "  make logs-api      - Exibe logs do serviço api"
+	@echo "  make logs-frontend - Exibe logs do serviço frontend"
+	@echo "  make test          - Executa a suite de testes (profile test)"
+	@echo "  make redis-cli     - Abre um redis-cli no container"
 
-dev-network:
-	@docker network inspect $(DEV_NETWORK_NAME) >/dev/null 2>&1 || \
-	docker network create $(DEV_NETWORK_NAME)
+network:
+	@docker network inspect $(NETWORK_NAME) >/dev/null 2>&1 || \
+	docker network create $(NETWORK_NAME)
 
-prod-network:
-	@docker network inspect $(PROD_NETWORK_NAME) >/dev/null 2>&1 || \
-	docker network create $(PROD_NETWORK_NAME)
+build: network
+	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml build
 
-build-dev: dev-network
-	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml up -d --build
-
-build-prod: prod-network dev-network
-	docker-compose -p $(LANGFUSE_NAME) -f langfuse/docker-compose.yml up -d --build
-	docker-compose -p $(PROJECT_NAME) -f docker-compose-prod.yml up -d --build
-
-up-dev:
+up:
 	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml up -d
 
-up-prod:
-	docker-compose -p $(LANGFUSE_NAME) -f langfuse/docker-compose.yml up -d
-	docker-compose -p $(PROJECT_NAME) -f docker-compose-prod.yml up -d
+build-up: network
+	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml up -d --build
 
-logs-dev-api:
-	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml logs -f api
-
-down-dev:
+down:
 	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml down
 
-down-prod:
-	docker-compose -p $(LANGFUSE_NAME) -f langfuse/docker-compose.yml down
-	docker-compose -p $(PROJECT_NAME) -f docker-compose-prod.yml down
-
-reset-dev:
+reset:
 	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml down -v
 
-reset-prod:
-	docker-compose -p $(LANGFUSE_NAME) -f langfuse/docker-compose.yml down -v
-	docker-compose -p $(PROJECT_NAME) -f docker-compose-prod.yml down -v
+logs-api:
+	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml logs -f api
 
-build-test: dev-network
-	docker-compose -f docker-compose.yml build api-test
+logs-frontend:
+	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml logs -f frontend
 
 test:
-	docker-compose -f docker-compose.yml run --rm api-test
+	docker-compose -p $(PROJECT_NAME) -f docker-compose.yml --profile test run --rm --build api-test
 
-redis-cli-dev:
+redis-cli:
 	docker exec -it sql-agent-dev-redis redis-cli

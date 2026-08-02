@@ -21,7 +21,7 @@ services:
     container_name: sql-agent-dev-api
     env_file: api/.env
     ports:
-      - "8000:8000"
+      - "8101:8000"
     volumes:
       - ./api:/app
   
@@ -35,7 +35,7 @@ services:
     depends_on:
       - api
     ports:
-      - "8501:8501"
+      - "8102:8501"
     volumes:
       - ./frontend:/app
 

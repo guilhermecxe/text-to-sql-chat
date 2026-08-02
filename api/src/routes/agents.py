@@ -3,7 +3,6 @@ from uuid import uuid4
 import logging
 
 from src.di import (
-    get_sql_agent,
     get_agent_dispatcher_service,
     get_agent_executor_service,
 )
@@ -67,6 +66,10 @@ async def ask_conversational_agent(
         
         else:
             result = await agent_executor_service.execute(agent_name, agent_input)
+
+            if "error" in result:
+                raise HTTPException(status_code=500, detail=result["error"])
+
             return {
                 "answer": result["answer"],
                 "charts": result["charts"],
@@ -84,8 +87,11 @@ async def pull_answer(
 ):
     try:
         result = await agent_executor_service.get_result(job_id)
+
         if not result:
             raise HTTPException(status_code=404, detail="Result not found")
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
 
         return result
     except HTTPException:

@@ -1,16 +1,52 @@
 # Conversational Agent with Database Access
 
-A chat app where a conversational assistant answers questions and runs SQL queries against the **Chinook** music store database. The agent can also generate charts (bar, line, funnel) directly in the conversation.
+A chat app where a conversational agent answers questions in plain language by running SQL queries against a database (**text-to-SQL**), and can **generate charts directly in the chat** to visualize the results.
 
 Watch a demo:
 <video src="media/demo.mp4" controls muted playsinline></video>
 
+## Main ideas
+
+### For agents
+
+- Isolate the SQL agent from the conversational agent (the SQL agent is a subagent/tool), so each agent can specialize in its own task and be powered by a cheaper model, since it won't carry multiple responsibilities.
+
+### For charts
+
+- Let the conversational agent generate charts inline and reference them freely in its answer — e.g. the agent can say `"Here's a chart of the top 5 artists: [[chart=123]]"`, and the frontend resolves `[[chart=123]]` to the SVG returned by the API alongside the answer.
+- Let the agent reshow a previously generated chart, backed by a cache of every chart created during the conversation.
+- Keep chart generation robust to the agent's output: the agent only supplies the data, all the rendering logic is already implemented and tested.
+- Use a `ChartDesigner` port to decouple the agent from the charting library (Plotly, in this case). Charts can be generated without the agent knowing the underlying library, and the library can be swapped without touching agent code.
+- Use a predefined color palette so agent-generated charts stay visually consistent with the UI theme (dark/light).
+- Decouple the textual answer from the chart image in the API response, so the client can save and/or render the chart image however it sees fit.
+
+## Tech stack
+
+- **API**: FastAPI, LangChain / LangGraph, Redis (job queue)
+- **Charts**: Plotly + Kaleido (SVG export)
+- **Frontend**: Streamlit
+- **Observability**: Langfuse
+- **Infra**: Docker Compose
+
+---
+
+An example of answer given by the conversational agent:
+
+```json
+{
+  "answer": "Here’s the chart for the top 10 countries by sales:\n\n[[chart=10]]\n And here's the chart for the top 5 artists by sales:\n\n[[chart=5]]",
+  "charts": {
+    "10": "<svg class=\"main-svg\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"900\" height=\"600\" style=\"\" viewBox=\"0 0 900 600\"><rect x=\"0\" y=\"0\" width=\"900\" ...",
+    "11": "<svg class=\"main-svg\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"900\" height=\"600\" style=\"\" viewBox=\"0 0 900 600\"><rect x=\"0\" y=\"0\" width=\"900\" ..."
+  }
+}
+```
 
 ## Architecture
 
 ```
 frontend (Streamlit)
-    └── API Client → FastAPI (api/)
+    └── APIClient → FastAPI (api/)
                         ├── POST /api/agents/ask-conversational-agent
                         ├── POST /api/agents/ask-sql-agent
                         └── GET  /api/agents/pull_answer
@@ -18,19 +54,24 @@ frontend (Streamlit)
 FastAPI
     ├── AgentDispatcherService  → Redis queue (enqueue jobs)
     └── AgentExecutorService    → Redis queue (dequeue + run agents)
+                                → enforces a daily usage limit (data/usage.json)
+                                   before invoking an agent
 
 Agents
     ├── ConversationalAgent     (LangGraph + checkpointing)
     │       ├── SQLAgent (subagent as tool)
     │       └── ChartToolkit (bar chart, line chart, funnel chart)
+    │              └── ChartService (caches generated charts by ID)
     └── SQLAgent                (LangChain SQLDatabaseToolkit → Chinook DB)
 
-Adapters
-    ├── RedisMessageBroker      (implements MessageBroker port)
-    └── PlotlyChartDesigner     (implements ChartDesigner port)
+Ports & Adapters
+    ├── MessageBroker port      → RedisMessageBroker adapter
+    └── ChartDesigner port      → PlotlyChartDesigner adapter
 ```
 
 The frontend supports **sync** and **async** modes. In async mode, requests are enqueued in Redis and polled via `pull_answer`.
+
+Errors (e.g. the daily usage limit being reached, or an agent failure) are returned by `AgentExecutorService` as `{"error": ...}`, turned into HTTP 500 responses by the routes, and surfaced by `APIClient` as a friendly message in the chat.
 
 
 ## Environment setup
@@ -40,26 +81,14 @@ The frontend supports **sync** and **async** modes. In async mode, requests are 
     cp api/.env.example api/.env
     cp frontend/.env.example frontend/.env
     ```
-    Then edit both files and fill in the required keys and values.
 
-2. Key variables in `api/.env`:
-
-    | Variable | Description |
-    |---|---|
-    | `API_KEY` | Key required by the frontend to call the API (leave empty in dev) |
-    | `MODE` | `dev` disables API key validation and enables debug logging |
-    | `REDIS_HOST` / `REDIS_PORT` | Redis connection (use `redis` / `6379` inside Docker) |
-    | `TASKS_QUEUE_NAME` | Redis list name for the job queue |
-    | `OPENAI_API_KEY` | Required for the default `openai:gpt-4o-mini` model |
-    | `GOOGLE_API_KEY` | Optional — for using Google models |
-    | `LANGFUSE_*` | Optional — for observability traces |
-
+2. Then edit both files and fill in the required keys and values with the appropriate values indicated.
 
 ## Quickstart
 
-Build images and start the dev stack:
+Build the images and start the stack:
 ```shell
-make build-dev
+make build-up
 ```
 
 
@@ -67,26 +96,17 @@ make build-dev
 
 | Command | Description |
 |---|---|
-| `make build-dev` | Build images and start the dev stack |
-| `make up-dev` | Start the dev stack (no rebuild) |
-| `make down-dev` | Stop the dev stack |
-| `make reset-dev` | Stop the dev stack and remove volumes |
-| `make logs-dev-api` | Follow API container logs |
-| `make build-prod` | Build images and start the prod stack (includes Langfuse) |
-| `make up-prod` | Start the prod stack (no rebuild) |
-| `make down-prod` | Stop the prod stack |
-| `make reset-prod` | Stop the prod stack and remove volumes |
+| `make build` | Build the images |
+| `make up` | Start the stack (no rebuild) |
+| `make build-up` | Build the images and start the stack |
+| `make down` | Stop the stack |
+| `make reset` | Stop the stack and remove volumes |
+| `make logs-api` | Follow the API container logs |
+| `make logs-frontend` | Follow the frontend container logs |
 | `make test` | Run the test suite via Docker |
-| `make redis-cli-dev` | Open a Redis CLI session in the dev container |
-
-
-## Charts
-
-The conversational agent can generate charts inline. When a chart is produced, the agent references it in the message using the `[[chart=<id>]]` syntax. The frontend resolves these references to SVGs returned by the API alongside the answer.
-
-Supported chart types: **bar**, **line**, **funnel**. Charts respect the active UI theme (`dark` / `light`).
+| `make redis-cli` | Open a Redis CLI session in the container |
 
 
 ## Observability
 
-Langfuse traces are enabled when `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `LANGFUSE_BASE_URL` are set in `api/.env`. In prod, start the Langfuse stack first with `make build-prod`.
+Langfuse traces are enabled when `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `LANGFUSE_BASE_URL` are set in `api/.env`.

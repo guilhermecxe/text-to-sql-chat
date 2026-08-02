@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     }
 
     # Agents
-    conversational_agent_default_model: str = "openai:gpt-4o-mini"
-    sql_agent_default_model: str = "openai:gpt-4o-mini"
+    conversational_agent_default_model: str = "openai:gpt-5.4-mini"
+    sql_agent_default_model: str = "openai:gpt-5.4-mini"
 
     sql_agent_db_uri: str = "sqlite:///data/Chinook.db"

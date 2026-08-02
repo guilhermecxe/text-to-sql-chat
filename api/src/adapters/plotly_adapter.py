@@ -137,6 +137,16 @@ class PlotlyChartDesigner(ChartDesigner):
 
         range_ = [y_min, y_max]
 
+        # No modo horizontal, o eixo y físico carrega as categorias (s.x) e o
+        # eixo x físico carrega os valores (s.y) — título e range precisam
+        # seguir essa troca, senão ficam no eixo errado.
+        if data.orientation == "vertical":
+            xaxis_title, yaxis_title = data.x_label, data.y_label
+            xaxis_range, yaxis_range = None, range_
+        else:
+            xaxis_title, yaxis_title = data.y_label, data.x_label
+            xaxis_range, yaxis_range = range_, None
+
         fig = go.Figure(data=traces)
         fig.update_layout(
             width=data.width,
@@ -144,7 +154,7 @@ class PlotlyChartDesigner(ChartDesigner):
             barmode=data.mode,
             paper_bgcolor=palette["bg"],
             plot_bgcolor=palette["bg"],
-            margin=dict(l=12, r=12, t=48 if data.title else 24, b=12),
+            margin=dict(l=12, r=12, t=80 if data.title else 24, b=12),
             title=dict(
                 text=title_text,
                 font=dict(family="JetBrains Mono, monospace", size=18, color=palette["text"]),
@@ -159,21 +169,22 @@ class PlotlyChartDesigner(ChartDesigner):
                 y=-0.15,
             ),
             xaxis=dict(
-                title=dict(text=data.x_label, font=dict(size=14, color=palette["neutral"])),
+                title=dict(text=xaxis_title, font=dict(size=14, color=palette["neutral"])),
                 tickfont=dict(family="JetBrains Mono, monospace", size=14, color=palette["text_muted"]),
                 gridcolor=palette["grid"], # Cor do grid
                 linecolor=palette["grid"], # Cor da linha do eixo
                 showline=True,
                 zeroline=False, # Se dá um destaque ao valor 0 do eixo
+                range=xaxis_range,
             ),
             yaxis=dict(
-                title=dict(text=data.y_label, font=dict(size=14, color=palette["neutral"])),
+                title=dict(text=yaxis_title, font=dict(size=14, color=palette["neutral"])),
                 tickfont=dict(family="JetBrains Mono, monospace", size=14, color=palette["text_muted"]),
                 gridcolor=palette["grid"],
                 linecolor="rgba(0,0,0,0)",
                 zeroline=False,
                 showgrid=True,
-                range=range_,
+                range=yaxis_range,
             ),
             bargap=0.28, # Diferença entre grupos de barras ou entre barras se só existir um grupo
             bargroupgap=0.08, # Diferença entre barras de um mesmo grupo
@@ -254,7 +265,7 @@ class PlotlyChartDesigner(ChartDesigner):
             height=data.height,
             paper_bgcolor=palette["bg"],
             plot_bgcolor=palette["bg"],
-            margin=dict(l=12, r=12, t=48 if data.title else 24, b=12),
+            margin=dict(l=12, r=12, t=80 if data.title else 24, b=12),
             title=dict(
                 text=title_text,
                 font=dict(family="JetBrains Mono, monospace", size=18, color=palette["text"]),
@@ -364,7 +375,7 @@ class PlotlyChartDesigner(ChartDesigner):
             height=data.height,
             paper_bgcolor=palette["bg"],
             plot_bgcolor=palette["bg"],
-            margin=dict(l=12, r=12, t=48 if data.title else 24, b=12),
+            margin=dict(l=12, r=12, t=80 if data.title else 24, b=12),
             title=dict(
                 text=title_text,
                 font=dict(family="JetBrains Mono, monospace", size=18, color=palette["text"]),
